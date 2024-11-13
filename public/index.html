@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Taiko Gas Price Tracker</title>
+  <!-- Chart.js library -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Moment.js date adapter for Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/moment"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment"></script>
+  <style>
+    /* Body and container setup */
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
+
+    /* Flex container for the whole page */
+    #pageContainer {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    /* Title section */
+    h1 {
+      text-align: center;
+      font-size: 24px;
+      padding: 20px;
+      margin: 0;
+      background-color: #f5f5f5;
+      margin-bottom: 20px; /* Add some space between title and chart */
+    }
+
+    /* Chart container */
+    #chartContainer {
+      flex: 1; /* This makes the chart container take the remaining height */
+      display: flex;
+      position: relative;
+      height: 90%;
+      border: 2px solid #ccc; /* Border around the chart */
+      margin-top: 20px;
+      padding: 10px;
+    }
+
+    #gasPriceChart {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Stats note box inside the chart */
+    #statsNoteBox {
+      position: absolute;
+      top: 30px;
+      left: 80px;
+      background-color: rgba(255, 255, 255, 0.8); /* Light background with transparency */
+      padding: 10px;
+      border-radius: 5px;
+      width: 250px; /* Fixed width for the stats box */
+      font-family: Arial, sans-serif;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    #statsNoteBox h4 {
+      margin-top: 0;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    /* Custom style for the latest gas price */
+    #latestGas {
+      color: red; /* Đặt màu chữ đỏ */
+      font-size: 20px; /* Đặt kích thước chữ lớn hơn */
+      font-weight: bold; /* Đặt chữ in đậm */
+    }
+
+    #statsNoteBox p {
+      margin: 5px 0;
+    }
+
+    /* Canvas element for the chart */
+    #gasPriceChart {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="pageContainer">
+
+    <h1>Taiko Gas Price Tracker</h1>
+    
+    <!-- Container to hold the chart and stats together -->
+    <div id="chartContainer">
+      <canvas id="gasPriceChart"></canvas>
+      
+      <!-- Note Box for displaying stats inside the chart -->
+      <div id="statsNoteBox">
+        <h4>Gas Price Statistics</h4>
+        <p><strong>Latest Gas Price:</strong> <span id="latestGas">Loading...</span> Gwei</p>
+        <p><strong>Max Gas Price:</strong> <span id="maxGas">Loading...</span> Gwei</p>
+        <p><strong>Min Gas Price:</strong> <span id="minGas">Loading...</span> Gwei</p>
+        <p><strong>Avg Gas Price:</strong> <span id="avgGas">Loading...</span> Gwei</p>
+      </div>
+    </div>
+    
+    <script>
+      async function loadGasData() {
+        const response = await fetch('/data/gas_price_data.json');
+        
+        if (!response.ok) throw new Error('Failed to load gas price data');
+        
+        const data = await response.json();
+        if (!data || !data.data || data.data.length === 0) {
+          console.warn("No data found in gas_price_data.json.");
+          return { dataPoints: [], stats: { max: 0, min: 0, avg: 0 }, latestGasPrice: 0 };;
+        }
+        const stats = data.stats || { max: 0, min: 0, avg: 0 };
+        
+        const dataPoints = data.data.map(entry => ({
+          x: new Date(entry.timestamp), // Convert string timestamp to Date
+          y: entry.gasPrice
+        }));
+
+        // Get the latest gas price (the last entry in the data array)
+        const latestGasPrice = data.data[data.data.length - 1].gasPrice;
+        
+        return { dataPoints, stats, latestGasPrice };
+      }
+      
+      
+      async function drawChart() {
+        const { dataPoints, stats, latestGasPrice } = await loadGasData();
+        
+        // Display statistics in the note box
+        document.getElementById('maxGas').textContent = stats.max ? stats.max.toFixed(2) : 'N/A';
+        document.getElementById('minGas').textContent = stats.min ? stats.min.toFixed(2) : 'N/A';
+        document.getElementById('avgGas').textContent = stats.avg ? stats.avg.toFixed(2) : 'N/A';
+        document.getElementById('latestGas').textContent = latestGasPrice ? latestGasPrice.toFixed(2) : 'N/A';
+        
+        const ctx = document.getElementById('gasPriceChart').getContext('2d');
+        
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            datasets: [{
+              label: 'Gas Price (Gwei)',
+              data: dataPoints,
+              borderColor: 'rgb(75, 192, 192)',
+              fill: false,
+              tension: 0.1
+            }]
+          },
+          options: {
+            scales: {
+              x: {
+                type: 'time',
+                time: {
+                  unit: 'hour',
+                  tooltipFormat: 'll HH:mm', // Định dạng hiển thị tooltip (ngày giờ)
+                  displayFormats: {
+                    minute: 'MM-DD HH:mm' // Hiển thị chỉ tháng, ngày và giờ (không có năm)
+                }
+              }
+            },
+            y: {
+              title: {
+                display: true,
+                text: 'Gas Price (Gwei)'
+              }
+            }
+          }
+        }
+      });
+    }
+    
+    drawChart();
+    </script>
+  </div>
+</body>
+
+</html>
